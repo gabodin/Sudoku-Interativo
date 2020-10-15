@@ -97,8 +97,7 @@ struct GameManager { //
 
 
     //== Aux methods
-    void generate_board_answer ();// Lê um arquivo de texto e guarda os tabuleiros gabarito
-    void generate_board_playable();// Cria os tabuleiros jogáveis a partir dos tabuleiros gabarito
+    void generate_boards ();// Lê um arquivo de texto e gera todos os tabuleiros jogáveis e resposta
     bool do_check (int row_check, int column_check); //Verifica se o número está na posição correta
     void place(int row, int column, int number_value); //Coloca uma peça no tabuleiro, caso não seja uma posição fixada
     void remove(int row, int column); // Remove uma peça do tabuleiro, caso não seja uma posição fixada
@@ -122,8 +121,6 @@ struct GameManager { //
     void print_confirm_quitting_match(); // Imprime na tela a mensagem de confirmação de troca do tabuleiro
     void emptying_board(); // Esvazia todas as posições já alteradas de um tabuleiro, para que o usuário possa recomeçá-lo
     bool is_finished(); //Determina se todas as posições do tabuleiro estão com valores válidos
-    void print_board_not_fixed();
-
 };
 
 void GameManager::initialize()
@@ -375,7 +372,7 @@ void GameManager::print_board()
     string columns_grid = "     1 2 3   4 5 6   7 8 9  ";
     //Identifica se o valor de column_index está entre 1 e 9, valor só é alterado quando o input é válido e no início de process_events é zerado, assim como o row_index
     if(column_index > 0 && column_index < 10) {
-        int found = columns_grid.find_first_of(std::to_string(column_index - 1));
+        int found = columns_grid.find_first_of(std::to_string(column_index));
         for(int blank_counter{1}; blank_counter <= found; blank_counter++){
             std::cout << " ";
         }
@@ -475,7 +472,7 @@ void GameManager::print_welcome(void)
 
 
 
-void GameManager::generate_board_answer()
+void GameManager::generate_boards()
 {
     string file = "../data/input.txt";
     std::ifstream myFile(file);
@@ -551,7 +548,7 @@ void GameManager::place(int row, int column, int number_value){
             GameManager::board_playable[board_counter].boards[row][column].position_status = Board::INVALID;
         }
         current_message = "New number placed sucessfully!";
-        if(game_state != GameState::UNDOING_PLAY){
+        if(game_state != GameState::UNDOING_PLAY){ //Teste se 
             undo_list.push_back({Move::Command::PLACE, row, column, 0});
         }
     }
@@ -585,24 +582,6 @@ void GameManager::undo()
     undo_list.pop_back();
 } 
 
-void GameManager::generate_board_playable()
-{   
-    for(auto board{0}; board <= board_counter_limit; board++){
-        for(auto i{0}; i < BOARD_SIZE; i++){
-            for(auto j{0}; j < BOARD_SIZE; j++){
-                if(GameManager::board_answer[board].boards[i][j].value > 0) {
-                    GameManager::board_playable[board].boards[i][j].value = GameManager::board_answer[board].boards[i][j].value;
-                    GameManager::board_playable[board_counter].boards[i][j].position_status = Board::FIXED;
-                }
-                else if (GameManager::board_answer[board].boards[i][j].value < 0) {
-                    GameManager::board_playable[board].boards[i][j].value = 0;
-                    GameManager::board_playable[board].boards[i][j].position_status = Board::EMPTY;
-                    GameManager::board_answer[board].boards[i][j].value = (GameManager::board_answer[board].boards[i][j].value) * -1;
-                }
-            }
-        }
-    }
-}
 
 void GameManager::process_events(void)
 {   
@@ -641,7 +620,7 @@ void GameManager::process_events(void)
         if(main_menu_option > 0 && main_menu_option < 5){
             return;
         } else {
-            current_message = "You must answer with a number within [1, 4https://github.com/gabodin/Lista02_LPI/tree/master]. Try again!";
+            current_message = "You must answer with a number within [1, 4]. Try again!";
             game_state = GameState::INVALID_INPUT_MAIN;
         }
 
@@ -792,7 +771,7 @@ void GameManager::update(void)
         return;
     }
     if(game_state == GameState::STARTING){
-        generate_board_answer();
+        generate_boards();
         game_state = GameState::READING_MAIN_OPTION;
 
     } else if (game_state == GameState::READING_MAIN_OPTION){
