@@ -33,6 +33,7 @@ namespace Color {
     inline string tcolor( const string & msg, short color=Color::WHITE, short modifier=Color::REGULAR )
     {
         ostringstream oss;
+        
         oss << "\e[" << modifier << ";" << color << "m" << msg << "\e[0m";
         return oss.str();
     }

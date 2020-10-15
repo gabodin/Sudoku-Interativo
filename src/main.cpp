@@ -122,7 +122,7 @@ struct GameManager { //
     void print_confirm_quitting_match(); // Imprime na tela a mensagem de confirmação de troca do tabuleiro
     void emptying_board(); // Esvazia todas as posições já alteradas de um tabuleiro, para que o usuário possa recomeçá-lo
     bool is_finished(); //Determina se todas as posições do tabuleiro estão com valores válidos
-
+    void print_board_not_fixed();
 
 };
 
@@ -296,7 +296,7 @@ void GameManager::print_help(){
 void GameManager::print_command_syntax(){
     std::cout << Color::tcolor( "\nCommands syntax:", Color::BRIGHT_GREEN, Color::BOLD);
     std::cout << Color::tcolor("\n   \'enter\' (without typing anything)    -> go back to previous menu.",  Color::BRIGHT_GREEN, Color::BOLD);
-    std::cout << Color::tcolor("\n   \'p\' <row> <col> <number> + \'enter\' -> place <number> on board at location (<row>, <col>).", Color::BRIGHT_GREEN, Color::BOLD);
+    std::cout << Color::tcolor("\n   \'p\' <row> <col> + \'enter\' -> place <number> on board at location (<row>, <col>).", Color::BRIGHT_GREEN, Color::BOLD);
     std::cout << Color::tcolor("\n   \'r\' <row> <col> <number> + \'enter\' -> remove number on board at location (<row>, <col>).", Color::BRIGHT_GREEN, Color::BOLD);
     std::cout << Color::tcolor("\n   \'c\' + \'enter\'                      -> check which moves made are correct.", Color::BRIGHT_GREEN, Color::BOLD);
     std::cout << Color::tcolor("\n   \'u\' + \'enter\'                      -> undo last play.", Color::BRIGHT_GREEN, Color::BOLD);
@@ -373,13 +373,13 @@ void GameManager::emptying_board(){
 void GameManager::print_board()
 {   
     string columns_grid = "     1 2 3   4 5 6   7 8 9  ";
-
+    //Identifica se o valor de column_index está entre 1 e 9, valor só é alterado quando o input é válido e no início de process_events é zerado, assim como o row_index
     if(column_index > 0 && column_index < 10) {
         int found = columns_grid.find_first_of(std::to_string(column_index - 1));
-        for(int blank_counter{0}; blank_counter <= found + 2; blank_counter++){
+        for(int blank_counter{1}; blank_counter <= found; blank_counter++){
             std::cout << " ";
         }
-        std::cout << Color::tcolor("V", Color::BRIGHT_RED, Color::REGULAR);
+        std::cout << Color::tcolor("V", Color::BRIGHT_YELLOW, Color::REGULAR);
     }
 
     std::cout << "\n" <<Color::tcolor(columns_grid, Color::CYAN, Color::REGULAR) << "\n";
@@ -389,8 +389,8 @@ void GameManager::print_board()
 
         for(int j{0}; j< 9; j++){
             if(j == 0) {
-                if((row_index - 1) == i){
-                    std::cout <<  Color::tcolor(">", Color::BRIGHT_RED, Color::REGULAR) <<  Color::tcolor(std::to_string(i+1), Color::CYAN, Color::REGULAR) << " ";
+                if((row_index - 1) == i){ 
+                    std::cout <<  Color::tcolor(">", Color::BRIGHT_YELLOW, Color::REGULAR) <<  Color::tcolor(std::to_string(i+1), Color::CYAN, Color::REGULAR) << " ";
                 }
                 else {
                      std::cout <<  " " <<  Color::tcolor(std::to_string(i+1), Color::CYAN, Color::REGULAR) << " ";
@@ -416,6 +416,7 @@ void GameManager::print_board()
     std::cout << "   +-------+-------+-------+";
 
 }
+
 
 void GameManager::digits_left()
 {
@@ -491,7 +492,7 @@ void GameManager::generate_board_answer()
             GameManager::board_counter++;
             GameManager::board_counter_limit++;
 
-            while(count_row < 10) {
+            while(count_row < 10) { //percorre 10 linhas do arquivo de entrada, as nove primeiras linhas são do sudoku e a ultima linha é vazia
                     getline(myFile, line);
                     int count_column = 0;
                     std::string number_saver;
@@ -504,6 +505,19 @@ void GameManager::generate_board_answer()
                             } else if(*it == ' ' && !(number_saver.empty())) {
                                 GameManager::board_answer[board_counter].boards[count_row][count_column].value = stoi(number_saver);
                                 GameManager::board_answer[board_counter].boards[count_row][count_column].position_status = Board::FIXED;
+                                
+                                if(GameManager::board_answer[board_counter].boards[count_row][count_column].value > 0) { //Adiciona as posições fixadas a tabela jogavel
+                                    board_playable[board_counter].boards[count_row][count_column].value = GameManager::board_answer[board_counter].boards[count_row][count_column].value;
+                                    board_playable[board_counter].boards[count_row][count_column].position_status = Board::FIXED;
+
+                                } else if(GameManager::board_answer[board_counter].boards[count_row][count_column].value < 0) { //Adiciona as posições vazias na tabela jogavel
+                                    board_playable[board_counter].boards[count_row][count_column].value = 0;
+                                    board_playable[board_counter].boards[count_row][count_column].position_status = Board::EMPTY;
+
+                                    GameManager::board_answer[board_counter].boards[count_row][count_column].value *= -1; //Atualiza os valores na tabela gabarito, para que todas fiquem positivas
+                                }
+
+
                                 count_column++;
                                 number_saver.clear();
                                 aux.clear();
@@ -514,8 +528,10 @@ void GameManager::generate_board_answer()
             }
         }
         
-    } else std::cout << "Unable to open file";
-
+    } else {
+        std::cout << "Unable to open file";
+        game_state = GameState::QUITTING_MATCH;
+    }
     GameManager::board_counter = 0;
 
     myFile.close();
@@ -523,7 +539,7 @@ void GameManager::generate_board_answer()
 }
 
 void GameManager::place(int row, int column, int number_value){
-    if(GameManager::board_playable[board_counter].boards[row][column].position_status == Board::FIXED){
+    if(GameManager::board_playable[board_counter].boards[row][column].position_status == Board::FIXED){ //Caso seja uma posição fixada, entra em estado de entrada inválida
         game_state = GameState::INVALID_INPUT_PLAY;
         current_message = "You can't change this number";
         return;
@@ -535,8 +551,9 @@ void GameManager::place(int row, int column, int number_value){
             GameManager::board_playable[board_counter].boards[row][column].position_status = Board::INVALID;
         }
         current_message = "New number placed sucessfully!";
-        
-        undo_list.push_back({Move::Command::PLACE, row, column, 0});
+        if(game_state != GameState::UNDOING_PLAY){
+            undo_list.push_back({Move::Command::PLACE, row, column, 0});
+        }
     }
     
 }
@@ -551,7 +568,9 @@ void GameManager::remove(int row, int column){
         GameManager::board_playable[board_counter].boards[row][column].value = 0;
         GameManager::board_playable[board_counter].boards[row][column].position_status = Board::EMPTY;
         current_message = "Number removed sucessfully!";
-        undo_list.push_back({Move::Command::REMOVE, row, column, undo_value});
+        if(game_state != GameState::UNDOING_PLAY){
+            undo_list.push_back({Move::Command::REMOVE, row, column, undo_value});
+        }
     }
 }
 
@@ -575,7 +594,7 @@ void GameManager::generate_board_playable()
                     GameManager::board_playable[board].boards[i][j].value = GameManager::board_answer[board].boards[i][j].value;
                     GameManager::board_playable[board_counter].boards[i][j].position_status = Board::FIXED;
                 }
-                else if (GameManager::board_answer[board].boards[i][j].value > 0) {
+                else if (GameManager::board_answer[board].boards[i][j].value < 0) {
                     GameManager::board_playable[board].boards[i][j].value = 0;
                     GameManager::board_playable[board].boards[i][j].position_status = Board::EMPTY;
                     GameManager::board_answer[board].boards[i][j].value = (GameManager::board_answer[board].boards[i][j].value) * -1;
@@ -622,7 +641,7 @@ void GameManager::process_events(void)
         if(main_menu_option > 0 && main_menu_option < 5){
             return;
         } else {
-            current_message = "You must answer with a number within [1, 4]. Try again!";
+            current_message = "You must answer with a number within [1, 4https://github.com/gabodin/Lista02_LPI/tree/master]. Try again!";
             game_state = GameState::INVALID_INPUT_MAIN;
         }
 
@@ -773,8 +792,7 @@ void GameManager::update(void)
         return;
     }
     if(game_state == GameState::STARTING){
-        generate_board_answer ();
-        generate_board_playable();
+        generate_board_answer();
         game_state = GameState::READING_MAIN_OPTION;
 
     } else if (game_state == GameState::READING_MAIN_OPTION){
